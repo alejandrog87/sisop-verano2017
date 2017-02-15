@@ -1,0 +1,8 @@
+[TRACE] 12:29:37:123 procesoServer/(3432:3432): socket_create -> init
+[TRACE] 12:29:37:124 procesoServer/(3432:3432): getaddrinfo -> complete
+[TRACE] 12:29:37:124 procesoServer/(3432:3432): socket -> complete
+[TRACE] 12:29:37:125 procesoServer/(3432:3432): socket TIPO_SERVIDOR
+[TRACE] 12:29:37:126 procesoServer/(3432:3432): socket_multiplexing -> socket servidor creado
+[TRACE] 12:29:37:127 procesoServer/(3432:3432): Esperando conexiones entrantes...
+[TRACE] 12:33:16:316 procesoServer/(3432:3432): Nueva conexion
+[TRACE] 12:34:26:857 procesoServer/(3432:3432): Nueva conexion
