@@ -32,19 +32,30 @@ t_queue* ready;
 int main(void) {
 	logger = log_create(RUTA_LOG_S, PROCESO_S, true, LOG_LEVEL_TRACE);
 	ready = queue_create();
-	//creo instancia de logger
-	//t_log* logger = log_create(RUTA_LOG, PROCESO_S, true, LOG_LEVEL_TRACE);
 
 	while(!socket_multiplexing( IP_ESCUCHA, PUERTO_ESCUCHA, COLA_SERVER, &(operacion_nuevas_conexiones), &(operacion_conexiones_leer), &(operacion_conexiones_escribir),logger));
 	queue_destroy(ready);
+	log_destroy(logger);
 	return EXIT_SUCCESS;
 }
 
 void operacion_nuevas_conexiones(int sock_fd){
-	printf("Se recibió una nueva conexión\n");
+	char* test_cont_mensaje = string_from_format("Bienvenido socket numero %d", sock_fd);
+	log_trace(logger,"Se recibió una nueva conexión");
+	if(!sendall(sock_fd, test_cont_mensaje, string_length(test_cont_mensaje)+1)){
+		log_error(logger,"Error al enviar saludo");
+	}
+	free(test_cont_mensaje);
 }
 
 int operacion_conexiones_leer(int sock_fd){
+	char buffer[30];
+	int buffer_size=30;
+	log_trace(logger,string_from_format("El socket %d envio algun contenido", sock_fd));
+	if(!recvall(sock_fd, buffer, buffer_size)){
+		log_trace(logger,string_from_format("El socket %d se desconecto", sock_fd));
+		return 0;
+	}
 	return 1;
 }
 
