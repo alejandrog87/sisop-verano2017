@@ -20,6 +20,7 @@
 #define MAX_LONG_PAQUETE 57
 
 int main(void) {
+	char buffer[30];
 	//creo instancia de logger
 	t_log* logger = log_create(RUTA_LOG_C, PROCESO_C, true, LOG_LEVEL_TRACE);
 	int *buffer_size=malloc(sizeof(int));
@@ -31,6 +32,15 @@ int main(void) {
 	}else{
 		exit(0);
 	}
+	/**
+	 * @NAME: recv_all
+	 * @DESC: Recibe la cantidad de bytes especificados por buffer_size.
+	 * Devuelve 0 en caso de error.
+	 */
+	if(!recvall(socket_cliente, buffer, 30)){
+		log_error(logger,"Error al recibir");
+	}
+	log_trace(logger,buffer);
 
 
 	close(socket_cliente);
