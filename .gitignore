@@ -33,4 +33,4 @@
 *.su
 
 # Log files
-*.log
+#*.log
