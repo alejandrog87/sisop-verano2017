@@ -1,0 +1,5 @@
+[TRACE] 12:34:26:852 procesoCliente/(3504:3504): socket_create -> init
+[TRACE] 12:34:26:853 procesoCliente/(3504:3504): getaddrinfo -> complete
+[TRACE] 12:34:26:853 procesoCliente/(3504:3504): socket -> complete
+[TRACE] 12:34:26:854 procesoCliente/(3504:3504): socket TIPO_CLIENTE
+[TRACE] 12:34:26:854 procesoCliente/(3504:3504): Main -> socket cliente creado
