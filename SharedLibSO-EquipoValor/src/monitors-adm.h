@@ -29,6 +29,7 @@ typedef struct {
     char *path;
     void (*file_handler)(void*);
     t_log *logger;
+    char *fileName;
 } monitor_file_struct;
 
 
@@ -65,7 +66,7 @@ int create_thread_signal_monitor(int signal,void (*signal_handler)(int),t_log *l
  * signal_handler -> función que ejecutara si el evento ocurre (modificación de archivo).
  * logger -> instancia del logger de la libreria commmons
  */
-int create_thread_file_monitor(char* path,void (*handler)(void*),t_log *logger);
+int create_thread_file_monitor(char* path,void (*handler)(void*),t_log *logger,char* fileName);
 
 
 #endif /* SRC_MONITORS_ADM_H_ */

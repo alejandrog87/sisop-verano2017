@@ -9,11 +9,14 @@
 
 void *create_signal_monitor(void* struct_m){
 
+
 	monitor_signal_struct *st_monitor = struct_m;
 	struct sigaction susr;
 	susr.sa_handler = st_monitor->signal_handler; //un struct para cada signal a tratar, struct del sigusr1
 	susr.sa_flags = SA_RESTART; // si no se coloca este flag, la system call se interrumpe
 	sigemptyset(&susr.sa_mask); //sa_mask contiene los signals que se pueden bloquear mientras, se trata el signal actual
+
+
 
 	if (sigaction(st_monitor->signal, &susr, NULL) == -1) {
 		log_error(st_monitor->logger,
@@ -46,19 +49,19 @@ int create_thread_signal_monitor(int signal,void (*signal_handler)(int),t_log *l
 	}
 	if(!pthread_attr_destroy(&attr)){
 		log_trace(logger,
-					"monitors-adm->create_thread_signal_monitor -> hilo para atender signal creado");
+				"monitors-adm->create_thread_signal_monitor -> hilo para atender signal creado");
 	}else{
 		log_error(logger,
-							"monitors-adm->create_thread_signal_monitor ->fallo el pthread destroy");
+				"monitors-adm->create_thread_signal_monitor ->fallo el pthread destroy");
 		return 0;
 	}
 
 	if(!pthread_join(thread_signal, &res)){
 		log_trace(logger,
-						"monitors-adm->create_thread_signal_monitor -> hilo joineado");
+				"monitors-adm->create_thread_signal_monitor -> hilo joineado");
 	}else{
 		log_error(logger,
-						"monitors-adm->create_thread_signal_monitor ->fallo el pthread join");
+				"monitors-adm->create_thread_signal_monitor ->fallo el pthread join");
 		return 0;
 	}
 	free(res);
@@ -66,32 +69,38 @@ int create_thread_signal_monitor(int signal,void (*signal_handler)(int),t_log *l
 
 }
 
-int create_file_monitor(char* path,void (*handler)(void*),t_log *logger){
-
+void *create_file_monitor(void* struct_m){
+	monitor_file_struct  *st_monitor = struct_m;
+	void (*func_handler)(void*);
+	func_handler = st_monitor->file_handler;
 	char buffer[BUF_LEN];
 
-		// Al inicializar inotify este nos devuelve un descriptor de archivo
-		int file_descriptor = inotify_init();
-		if (file_descriptor < 0) {
-			log_error(logger, "create_file_monitor -> Error al inicializar inotify");
-			EXIT_FAILURE;
+	log_trace(st_monitor->logger, "create_file_monitor -> init");
 
-		}
+	// Al inicializar inotify este nos devuelve un descriptor de archivo
+	int file_descriptor = inotify_init();
+	if (file_descriptor < 0) {
+		log_error(st_monitor->logger, "create_file_monitor -> Error al inicializar inotify");
+		EXIT_FAILURE;
 
-		// Creamos un monitor sobre un path indicando que eventos queremos escuchar
-		// El evento que me interesa a mi es el IN_CLOSE_WRITE, cuando se cierra un archivo
-		// que se abrió para escribir. Por ejemplo un archivo de config.
-		int watch_descriptor = inotify_add_watch(file_descriptor, path, IN_CLOSE_WRITE);
+	}
 
-		// El file descriptor creado por inotify, es el que recibe la información sobre los eventos ocurridos
-		// para leer esta información el descriptor se lee como si fuera un archivo comun y corriente pero
-		// la diferencia esta en que lo que leemos no es el contenido de un archivo sino la información
-		// referente a los eventos ocurridos
-		int length = read(file_descriptor, buffer, BUF_LEN);
-		if (length < 0) {
-			log_error(logger, "create_file_monitor -> Error al leer el descriptor de inotify");
-			EXIT_FAILURE;
-		}
+	// Creamos un monitor sobre un path indicando que eventos queremos escuchar
+	// El evento que me interesa a mi es el IN_CLOSE_WRITE, cuando se cierra un archivo
+	// que se abrió para escribir. Por ejemplo un archivo de config.
+	// Escuchamos sobre el directorio indicado en st_monitor->path
+	int watch_descriptor = inotify_add_watch(file_descriptor, st_monitor->path, IN_CLOSE_WRITE);
+
+	// El file descriptor creado por inotify, es el que recibe la información sobre los eventos ocurridos
+	// para leer esta información el descriptor se lee como si fuera un archivo comun y corriente pero
+	// la diferencia esta en que lo que leemos no es el contenido de un archivo sino la información
+	// referente a los eventos ocurridos
+	int length = read(file_descriptor, buffer, BUF_LEN);
+	while(length >= 0){
+		//if (length < 0) {
+		//	log_error(st_monitor->logger, "create_file_monitor -> Error al leer el descriptor de inotify");
+		//	EXIT_FAILURE;
+		//}
 
 		int offset = 0;
 
@@ -110,11 +119,16 @@ int create_file_monitor(char* path,void (*handler)(void*),t_log *logger){
 				// sea un archivo o un directorio
 				if (event->mask & IN_CLOSE_WRITE) {
 					if (event->mask & IN_ISDIR) {
-						log_trace(logger, "create_file_monitor -> El directorio %s fue modificado", event-> name);
+						log_trace(st_monitor->logger, "create_file_monitor -> El directorio %s fue modificado", event-> name);
 					} else {
-						log_trace(logger, "create_file_monitor -> El archivo %s fue modificado ", event-> name);
-					}
+						//como escuchamos sobre un directorio verifico que el evento sea sobre el archivo que me interesa
+						//indicado en st_monitor->fileName
 
+						if(strcasecmp(event-> name, st_monitor->fileName) == 0){
+							log_trace(st_monitor->logger, "create_file_monitor -> El archivo %s fue modificado ", event-> name);
+							func_handler(struct_m);
+						}
+					}
 				}
 				/*ACA SE PUEDEN MONITOREAR OTROS EVENTOS Y AGREGAR OTROS HANDLERS*/
 				/*} else if (event->mask & IN_DELETE) {
@@ -133,15 +147,16 @@ int create_file_monitor(char* path,void (*handler)(void*),t_log *logger){
 			}
 			offset += sizeof (struct inotify_event) + event->len;
 		}
+		length = read(file_descriptor, buffer, BUF_LEN);
+	}
+	inotify_rm_watch(file_descriptor, watch_descriptor);
+	close(file_descriptor);
 
-		inotify_rm_watch(file_descriptor, watch_descriptor);
-		close(file_descriptor);
-
-		return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 
 }
 
-int create_thread_file_monitor(char* path,void (*handler)(void*),t_log *logger){
+int create_thread_file_monitor(char* path,void (*handler)(void*),t_log *logger,char* fileName){
 	pthread_attr_t attr;
 	pthread_t thread_signal;
 	pthread_attr_init(&attr);
@@ -151,6 +166,7 @@ int create_thread_file_monitor(char* path,void (*handler)(void*),t_log *logger){
 	st_file_monitor.logger=logger;
 	st_file_monitor.file_handler=handler;
 	st_file_monitor.path=path;
+	st_file_monitor.fileName=fileName;
 
 
 	if (pthread_create(&thread_signal, &attr, &create_file_monitor, (void*)&st_file_monitor) < 0) {
@@ -160,19 +176,19 @@ int create_thread_file_monitor(char* path,void (*handler)(void*),t_log *logger){
 	}
 	if(!pthread_attr_destroy(&attr)){
 		log_trace(logger,
-					"monitors-adm->create_thread_file_monitor -> hilo para atender file creado");
+				"monitors-adm->create_thread_file_monitor -> hilo para atender file creado");
 	}else{
 		log_error(logger,
-						"monitors-adm->create_thread_file_monitor ->fallo el pthread destroy");
+				"monitors-adm->create_thread_file_monitor ->fallo el pthread destroy");
 		return 0;
 	}
 
 	if(!pthread_join(thread_signal, &res)){
 		log_trace(logger,
-					"monitors-adm->create_thread_file_monitor -> hilo joineado");
+				"monitors-adm->create_thread_file_monitor -> hilo joineado");
 	}else{
 		log_error(logger,
-					"monitors-adm->create_thread_file_monitor ->fallo el pthread join");
+				"monitors-adm->create_thread_file_monitor ->fallo el pthread join");
 		return 0;
 	}
 	free(res);
